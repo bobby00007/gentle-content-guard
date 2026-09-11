@@ -4,8 +4,8 @@
       "capability": "code",
       "source": "github:bobby00007/ai-content-guard",
       "outcome": "migrate",
-      "status": "in_progress",
-      "next_action": "Copy source src/ and public/ files into this project, preserving the current start.ts to avoid requiring Supabase auth."
+      "status": "complete",
+      "next_action": "Source code copied into this project; placeholder index replaced with Hive landing page and analyzer."
     },
     {
       "capability": "schema",
@@ -26,7 +26,7 @@
       "source": "github:bobby00007/ai-content-guard",
       "outcome": "not_used",
       "status": "complete",
-      "next_action": "The app has no sign-in or user accounts; Supabase auth files in source are unused and will not be copied."
+      "next_action": "The app has no sign-in or user accounts; Supabase auth files in source were unused and not copied."
     },
     {
       "capability": "authorization",
@@ -39,15 +39,15 @@
       "capability": "uploaded_file_bytes",
       "source": "github:bobby00007/ai-content-guard",
       "outcome": "migrate",
-      "status": "pending",
-      "next_action": "Copy public/favicon.ico and src/assets/detection-sample.jpg."
+      "status": "complete",
+      "next_action": "Copied public/favicon.ico and src/assets/detection-sample.jpg."
     },
     {
       "capability": "external_providers",
       "source": "github:bobby00007/ai-content-guard",
       "outcome": "preserve",
-      "status": "pending",
-      "next_action": "AI analysis uses the Lovable AI Gateway via @ai-sdk/openai and the 'ai' package; LOVABLE_API_KEY is injected by the platform."
+      "status": "complete",
+      "next_action": "AI analysis uses the Lovable AI Gateway via @ai-sdk/openai and the 'ai' package; verified end-to-end."
     },
     {
       "capability": "public_endpoints",
@@ -81,8 +81,8 @@
       "capability": "secrets",
       "source": "github:bobby00007/ai-content-guard",
       "outcome": "preserve",
-      "status": "pending",
-      "next_action": "LOVABLE_API_KEY is provided by the platform; source .env Supabase credentials are project-specific and will not be copied."
+      "status": "complete",
+      "next_action": "LOVABLE_API_KEY is provided by the platform and working; source .env Supabase credentials were not copied."
     },
     {
       "capability": "cutover",
@@ -95,8 +95,8 @@
       "capability": "verification",
       "source": "github:bobby00007/ai-content-guard",
       "outcome": "run",
-      "status": "pending",
-      "next_action": "Build the project and open the preview to confirm the Hive landing page and analyzer render."
+      "status": "complete",
+      "next_action": "Build succeeded and end-to-end text analysis returned a result with score, verdict, signals, and sentence map."
     }
   ]
 }
