@@ -304,7 +304,7 @@ function Index() {
       <section id="how" className="border-y border-border bg-background py-20 lg:py-28">
         <div className="mx-auto max-w-[1240px] px-5">
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
+            <div className="reveal">
               <p className="section-kicker">Explainable by design</p>
               <h2 className="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">A score is only useful when you can question it.</h2>
               <p className="mt-6 max-w-lg text-lg leading-8 text-muted-foreground">Hive pairs every estimate with the visible patterns that shaped it, so reviewers can make better decisions.</p>
@@ -317,7 +317,7 @@ function Index() {
                 [ShieldCheck, "Human judgment", "Keeps uncertainty visible and avoids turning a model estimate into a false claim of proof."],
               ].map(([Icon, title, copy], index) => {
                 const FeatureIcon = Icon as typeof Fingerprint;
-                return <article key={title as string} className="border-b border-r border-border p-7 lg:p-9"><span className="font-mono text-xs text-muted-foreground">0{index + 1}</span><FeatureIcon className="mt-10 h-8 w-8" strokeWidth={1.5} /><h3 className="mt-6 text-xl font-semibold">{title as string}</h3><p className="mt-3 leading-7 text-muted-foreground">{copy as string}</p></article>;
+                return <article key={title as string} className={`reveal reveal-${index + 1} card-hover group border-b border-r border-border p-7 lg:p-9`}><span className="font-mono text-xs text-muted-foreground">0{index + 1}</span><FeatureIcon className="mt-10 h-8 w-8 transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1.5} /><h3 className="mt-6 text-xl font-semibold">{title as string}</h3><p className="mt-3 leading-7 text-muted-foreground">{copy as string}</p></article>;
               })}
             </div>
           </div>
@@ -339,15 +339,15 @@ function Index() {
               ["04", "Social platforms", "Prioritize suspicious content without hiding the confidence level."],
               ["05", "Recruiting", "Inspect high-volume applications for templated synthetic writing."],
               ["06", "Research", "Triage mixed datasets and document visible evidence for later review."],
-            ].map(([number, title, copy]) => <article key={number} className="min-h-56 border-b border-r border-signal-foreground/25 p-7"><span className="font-mono text-xs opacity-60">{number}</span><h3 className="mt-12 text-2xl font-semibold">{title}</h3><p className="mt-3 leading-7 opacity-70">{copy}</p></article>)}
+            ].map(([number, title, copy], index) => <article key={number} className={`reveal reveal-${(index % 5) + 1} min-h-56 border-b border-r border-signal-foreground/25 p-7 transition-colors duration-300 hover:bg-signal-foreground/10`}><span className="font-mono text-xs opacity-60">{number}</span><h3 className="mt-12 text-2xl font-semibold">{title}</h3><p className="mt-3 leading-7 opacity-70">{copy}</p></article>)}
           </div>
         </div>
       </section>
 
       <section id="trust" className="bg-ink py-20 text-ink-foreground lg:py-28">
         <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-10 px-5 lg:flex-row lg:items-end">
-          <div><p className="section-kicker text-signal">Trust, with context</p><h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">Test suspicious content before it tests your credibility.</h2></div>
-          <Button variant="hero" size="xl" asChild><a href="#detector">Try the detector <ArrowRight /></a></Button>
+          <div className="reveal"><p className="section-kicker text-signal">Trust, with context</p><h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">Test suspicious content before it tests your credibility.</h2></div>
+          <Button variant="hero" size="xl" className="cta-shine lift reveal reveal-2" asChild><a href="#detector">Try the detector <ArrowRight /></a></Button>
         </div>
       </section>
 
