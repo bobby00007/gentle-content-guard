@@ -24,3 +24,16 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## AI analysis backend
+
+Preset cards are offline demo fixtures. Uploaded text, images, and sampled video
+frames require a server-side AI provider; the app will show a configuration error
+instead of returning a made-up preset result when the provider is unavailable.
+
+For Netlify, set one of these production environment variables:
+
+- `OPENAI_API_KEY` (optional `OPENAI_MODEL`, default `gpt-4o-mini`)
+- `LOVABLE_API_KEY` (optional `LOVABLE_MODEL`, default `openai/gpt-6-astra`)
+
+Never expose either key in a `VITE_*` variable or commit it to the repository.

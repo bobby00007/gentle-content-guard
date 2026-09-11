@@ -46,7 +46,11 @@ import {
 import sampleImage from "@/assets/detection-sample.jpg";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { analyzeContent, type DetectionResult } from "@/lib/detector.functions";
+import {
+  analyzeContent,
+  type AnalyzeContentInput,
+  type DetectionResult,
+} from "@/lib/detector.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -206,6 +210,68 @@ interface ScanHistoryItem {
   videoName?: string;
 }
 
+interface VideoFrame {
+  dataUrl: string;
+  timestampSec: number;
+}
+
+async function extractVideoFrames(file: File): Promise<{
+  durationSec: number;
+  frames: VideoFrame[];
+}> {
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.muted = true;
+  video.playsInline = true;
+  video.src = objectUrl;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.addEventListener("loadedmetadata", () => resolve(), { once: true });
+      video.addEventListener("error", () => reject(new Error("The video could not be decoded.")), {
+        once: true,
+      });
+    });
+
+    if (!Number.isFinite(video.duration) || video.videoWidth === 0 || video.videoHeight === 0) {
+      throw new Error("The video has no readable frames.");
+    }
+
+    const durationSec = Math.min(video.duration, 86_400);
+    const frameTimes = Array.from({ length: 6 }, (_, index) => {
+      const ratio = (index + 1) / 7;
+      return Math.max(0, Math.min(durationSec - 0.05, durationSec * ratio));
+    });
+    const canvas = document.createElement("canvas");
+    const scale = Math.min(1, 768 / video.videoWidth);
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("The browser cannot create a video frame canvas.");
+
+    const frames: VideoFrame[] = [];
+    for (const timestampSec of frameTimes) {
+      await new Promise<void>((resolve, reject) => {
+        const onSeeked = () => resolve();
+        const onError = () => reject(new Error("The video frame could not be read."));
+        video.addEventListener("seeked", onSeeked, { once: true });
+        video.addEventListener("error", onError, { once: true });
+        video.currentTime = timestampSec;
+      });
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      frames.push({
+        dataUrl: canvas.toDataURL("image/jpeg", 0.76),
+        timestampSec: Math.round(timestampSec * 10) / 10,
+      });
+    }
+
+    return { durationSec, frames };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function useReveal(dependency?: unknown) {
   useEffect(() => {
     const targets = Array.from(document.querySelectorAll<HTMLElement>(".reveal:not(.in-view)"));
@@ -252,7 +318,13 @@ function Index() {
 
   const [text, setText] = useState("");
   const [image, setImage] = useState<{ dataUrl: string; type: string; name: string } | null>(null);
-  const [videoFile, setVideoFile] = useState<{ name: string; size: string } | null>(null);
+  const [videoFile, setVideoFile] = useState<{
+    name: string;
+    size: string;
+    durationSec: number;
+    frames: VideoFrame[];
+  } | null>(null);
+  const [videoPreparing, setVideoPreparing] = useState(false);
   const [result, setResult] = useState<DetectionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -337,19 +409,30 @@ function Index() {
     reader.readAsDataURL(file);
   };
 
-  const readVideoFile = (file?: File) => {
+  const readVideoFile = async (file?: File) => {
     if (!file) return;
     if (!file.type.includes("video") && !file.name.match(/\.(mp4|webm|mov|mkv)$/i)) {
       setError("Please upload an MP4, WebM, or MOV video file.");
       return;
     }
-    setVideoFile({
-      name: file.name,
-      size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-    });
-    setSelectedVideoPreset("");
-    setResult(null);
-    setError("");
+    setVideoPreparing(true);
+    setError("Preparing representative frames for analysis…");
+    try {
+      const extracted = await extractVideoFrames(file);
+      setVideoFile({
+        name: file.name,
+        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        ...extracted,
+      });
+      setSelectedVideoPreset("");
+      setResult(null);
+      setError("");
+    } catch (caught) {
+      setVideoFile(null);
+      setError(caught instanceof Error ? caught.message : "The video could not be prepared.");
+    } finally {
+      setVideoPreparing(false);
+    }
   };
 
   const readTextFile = (file?: File) => {
@@ -374,18 +457,23 @@ function Index() {
       setError("Upload an image or pick a preset above.");
       return;
     }
+    if (mode === "video" && videoPreparing) {
+      setError("Please wait while the video frames are prepared.");
+      return;
+    }
     setLoading(true);
     setError("");
 
     try {
-      let payload: Parameters<typeof analyze>[0]["data"];
+      let payload: AnalyzeContentInput;
 
       if (mode === "video") {
         payload = {
           kind: "video",
-          presetId: selectedVideoPreset,
-          fileName: videoFile?.name,
-          durationSec: 12,
+          ...(selectedVideoPreset ? { presetId: selectedVideoPreset } : {}),
+          ...(videoFile?.name ? { fileName: videoFile.name } : {}),
+          durationSec: videoFile?.durationSec ?? 12,
+          ...(videoFile?.frames ? { frames: videoFile.frames } : {}),
         };
       } else if (mode === "image") {
         payload = {
@@ -423,7 +511,7 @@ function Index() {
         score: next.score,
         verdict: next.verdict,
         result: next,
-        text: mode === "text" ? text : undefined,
+        ...(mode === "text" ? { text } : {}),
       });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Analysis failed.");
@@ -1089,10 +1177,15 @@ function Index() {
                   variant="hero"
                   size="xl"
                   className="cta-shine mt-6 w-full font-bold text-base transition-transform hover:-translate-y-0.5 active:translate-y-0"
-                  disabled={loading}
+                  disabled={loading || videoPreparing}
                   onClick={runAnalysis}
                 >
-                  {loading ? (
+                  {videoPreparing ? (
+                    <>
+                      <LoaderCircle className="animate-spin mr-2" />
+                      Preparing video frames…
+                    </>
+                  ) : loading ? (
                     <>
                       <LoaderCircle className="animate-spin mr-2" />
                       Analyzing Audio-Visual Forensics & Scams…

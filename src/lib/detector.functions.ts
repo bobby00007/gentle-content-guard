@@ -23,12 +23,18 @@ const imageInputSchema = z.object({
   presetId: z.string().optional(),
 });
 
+const videoFrameSchema = z.object({
+  dataUrl: z.string().startsWith("data:image/").max(2_000_000),
+  timestampSec: z.number().min(0).max(86_400),
+});
+
 const videoInputSchema = z.object({
   kind: z.literal("video"),
   videoUrl: z.string().optional(),
   fileName: z.string().optional(),
   presetId: z.string().optional(),
   durationSec: z.number().optional(),
+  frames: z.array(videoFrameSchema).max(8).optional(),
 });
 
 const inputSchema = z.discriminatedUnion("kind", [
@@ -87,32 +93,48 @@ const resultSchema = z.object({
 });
 
 export type DetectionResult = z.infer<typeof resultSchema>;
+export type WhatsAppRebuttal = NonNullable<DetectionResult["rebuttal"]>;
+export type VideoTimelineFrame = NonNullable<DetectionResult["videoTimeline"]>[number];
+export type AnalyzeContentInput = z.infer<typeof inputSchema>;
 
 export const analyzeContent = createServerFn({ method: "POST" })
   .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data }) => {
-    // Video mode is analyzed with the dedicated DVPS14 deepfake forensic timeline engine
-    if (data.kind === "video") {
-      return analyzeVideoHeuristically(data.presetId, data.fileName, data.durationSec);
-    }
+    const hasRealInput =
+      data.kind === "text" ||
+      (data.kind === "image" && data.dataUrl.length > 0) ||
+      (data.kind === "video" && (data.frames?.length ?? 0) > 0);
 
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) {
-      // Graceful offline / heuristic analysis when AI gateway API key is not configured
-      if (data.kind === "text") {
-        return analyzeTextHeuristically(data.content);
+    const lovableApiKey = process.env["LOVABLE_API_KEY"];
+    const openAiApiKey = process.env["OPENAI_API_KEY"];
+
+    // Presets are intentionally deterministic demo fixtures. Real uploads must
+    // never silently receive a preset result when the AI backend is unavailable.
+    if (!lovableApiKey && !openAiApiKey) {
+      if (!hasRealInput) {
+        if (data.kind === "image") {
+          return analyzeImageHeuristically(data.dataUrl, data.mimeType, data.fileName, data.presetId);
+        }
+        return analyzeVideoHeuristically(data.presetId, data.fileName, data.durationSec);
       }
-      return analyzeImageHeuristically(data.dataUrl, data.mimeType, data.fileName, data.presetId);
+      throw new Error(
+        "AI analysis is not configured. Add OPENAI_API_KEY or LOVABLE_API_KEY to the Netlify production environment.",
+      );
     }
 
-    const lovable = createOpenAI({
-      baseURL: "https://ai.gateway.lovable.dev/v1",
-      apiKey,
-      headers: {
-        "Lovable-API-Key": apiKey,
-        "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-      },
-    });
+    const provider = lovableApiKey
+      ? createOpenAI({
+          baseURL: "https://ai.gateway.lovable.dev/v1",
+          apiKey: lovableApiKey,
+          headers: {
+            "Lovable-API-Key": lovableApiKey,
+            "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+          },
+        })
+      : createOpenAI({ apiKey: openAiApiKey! });
+    const modelName = lovableApiKey
+      ? process.env["LOVABLE_MODEL"] || "openai/gpt-6-astra"
+      : process.env["OPENAI_MODEL"] || "gpt-4o-mini";
 
     const instructions = `You are a senior synthetic-content forensic analyst specializing in verifying misinformation and deepfakes shared in family messaging groups (WhatsApp, Telegram). Return a careful, calibrated probabilistic assessment — never a claim of certainty.
 
@@ -123,34 +145,53 @@ SCORING RUBRIC (0 = certainly human, 100 = certainly AI):
 60-79 Multiple independent AI markers agree, but a competent professional writer could plausibly produce this.
 80-100 Dense convergence of AI markers with no counter-evidence.
 
-OUTPUT: 3 to 5 concise signals with weights 0-100 reflecting each signal's actual contribution. For text, split the content into representative sentence-sized segments and score each. Never identify a specific person. Keep summary under 45 words.`;
+OUTPUT: Always return every required field in the schema. Return 3 to 5 concise signals with weights 0-100 reflecting each signal's actual contribution. For text, split the content into representative sentence-sized segments and score each. For images, do not claim Error Level Analysis, sensor noise, eye reflections, or other pixel-level evidence unless it is genuinely observable from the supplied image. For video, only supplied frames are available: do not claim audio, lip-sync, blink cadence, or frame-to-frame behavior that the frames cannot establish. If evidence is insufficient, use an Uncertain verdict, Low confidence, and explain the limitation. Never identify a specific person. Keep summary under 45 words. Write the family advice and rebuttal for this specific input, not from a preset template.`;
 
     const prompt =
       data.kind === "text"
         ? [
             {
               role: "user" as const,
-              content: `Analyze this writing/WhatsApp forward for signals of AI generation:\n\n${data.content}`,
+              content: `Analyze this writing/WhatsApp forward for signals of AI generation and misinformation.\n\n${data.content}${data.claimContext ? `\n\nContext supplied by the user: ${data.claimContext}` : ""}`,
             },
           ]
-        : [
-            {
-              role: "user" as const,
-              content: [
-                {
-                  type: "text" as const,
-                  text: "Analyze this image for signals of AI manipulation and generation.",
-                },
-                { type: "image" as const, image: data.dataUrl, mediaType: data.mimeType },
-              ],
-            },
-          ];
+        : data.kind === "image"
+          ? [
+              {
+                role: "user" as const,
+                content: [
+                  {
+                    type: "text" as const,
+                    text: "Analyze this supplied image for evidence of AI generation, editing, or manipulation. Separate observable visual evidence from uncertainty.",
+                  },
+                  { type: "image" as const, image: data.dataUrl, mediaType: data.mimeType },
+                ],
+              },
+            ]
+          : [
+              {
+                role: "user" as const,
+                content: [
+                  {
+                    type: "text" as const,
+                    text: `Analyze these ${data.frames?.length ?? 0} sampled frames from the supplied video. The timestamp for each frame is included below. Assess only visual evidence present in the frames; explicitly state that audio and unseen frames were not analyzed.\n\n${(data.frames ?? [])
+                      .map((frame, index) => `Frame ${index + 1}: ${frame.timestampSec.toFixed(1)} seconds`)
+                      .join("\n")}`,
+                  },
+                  ...(data.frames ?? []).map((frame) => ({
+                    type: "image" as const,
+                    image: frame.dataUrl,
+                    mediaType: "image/jpeg" as const,
+                  })),
+                ],
+              },
+            ];
 
     const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
     const runPass = async (temperature: number) => {
       const pass = streamText({
-        model: lovable.responses("openai/gpt-6-astra"),
+        model: provider.responses(modelName),
         system: instructions,
         messages: prompt,
         temperature,
@@ -195,9 +236,6 @@ OUTPUT: 3 to 5 concise signals with weights 0-100 reflecting each signal's actua
 
       const metrics = data.kind === "text" ? calculateLinguisticMetrics(data.content) : undefined;
 
-      const fallbackText =
-        data.kind === "text" ? analyzeTextHeuristically(data.content) : undefined;
-
       return {
         ...primary,
         score,
@@ -212,16 +250,18 @@ OUTPUT: 3 to 5 concise signals with weights 0-100 reflecting each signal's actua
           score: clamp(segment.score),
         })),
         ...(metrics ? { metrics } : {}),
-        familyAdvice: fallbackText?.familyAdvice,
-        rebuttal: fallbackText?.rebuttal,
-        scamCategory: fallbackText?.scamCategory,
         mediaType: data.kind,
       } satisfies DetectionResult;
     } catch (error) {
-      console.warn("AI gateway analysis failed; falling back to forensic heuristics:", error);
-      if (data.kind === "text") {
-        return analyzeTextHeuristically(data.content);
+      console.error("AI analysis failed:", error);
+      if (!hasRealInput) {
+        if (data.kind === "image") {
+          return analyzeImageHeuristically(data.dataUrl, data.mimeType, data.fileName, data.presetId);
+        }
+        return analyzeVideoHeuristically(data.presetId, data.fileName, data.durationSec);
       }
-      return analyzeImageHeuristically(data.dataUrl, data.mimeType, data.fileName, data.presetId);
+      throw new Error(
+        "The AI analysis service could not analyze this input. Check the provider key and model configuration, then try again.",
+      );
     }
   });
