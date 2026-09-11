@@ -2,6 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { createOpenAI } from "@ai-sdk/openai";
 import { Output, streamText } from "ai";
 import { z } from "zod";
+import {
+  analyzeImageHeuristically,
+  analyzeTextHeuristically,
+  calculateLinguisticMetrics,
+} from "./detector.heuristics";
 
 const textInputSchema = z.object({
   kind: z.literal("text"),
@@ -34,6 +39,13 @@ const resultSchema = z.object({
       score: z.number(),
     }),
   ),
+  metrics: z
+    .object({
+      perplexity: z.number(),
+      burstiness: z.number(),
+      repetition: z.number(),
+    })
+    .optional(),
 });
 
 export type DetectionResult = z.infer<typeof resultSchema>;
@@ -42,7 +54,13 @@ export const analyzeContent = createServerFn({ method: "POST" })
   .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data }) => {
     const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("AI analysis is not configured for this project.");
+    if (!apiKey) {
+      // Graceful offline / heuristic analysis when AI gateway API key is not configured
+      if (data.kind === "text") {
+        return analyzeTextHeuristically(data.content);
+      }
+      return analyzeImageHeuristically(data.dataUrl, data.mimeType);
+    }
 
     const lovable = createOpenAI({
       baseURL: "https://ai.gateway.lovable.dev/v1",
@@ -122,7 +140,10 @@ OUTPUT: 3 to 5 concise signals with weights 0-100 reflecting each signal's actua
       // Two independent passes are averaged; their agreement calibrates confidence.
       const passes = await Promise.allSettled([runPass(0.1), runPass(0.6)]);
       const outputs = passes
-        .filter((pass): pass is PromiseFulfilledResult<z.infer<typeof resultSchema>> => pass.status === "fulfilled")
+        .filter(
+          (pass): pass is PromiseFulfilledResult<z.infer<typeof resultSchema>> =>
+            pass.status === "fulfilled",
+        )
         .map((pass) => pass.value);
 
       if (outputs.length === 0) {
@@ -134,13 +155,14 @@ OUTPUT: 3 to 5 concise signals with weights 0-100 reflecting each signal's actua
 
       const primary = outputs[0]!;
       const score = clamp(outputs.reduce((total, item) => total + item.score, 0) / outputs.length);
-      const spread =
-        outputs.length > 1 ? Math.abs(outputs[0]!.score - outputs[1]!.score) : 100;
+      const spread = outputs.length > 1 ? Math.abs(outputs[0]!.score - outputs[1]!.score) : 100;
       const ambiguous = score >= 40 && score <= 60;
       const confidence: DetectionResult["confidence"] =
         spread <= 10 && !ambiguous ? "High" : spread <= 25 ? "Moderate" : "Low";
       const verdict: DetectionResult["verdict"] =
         score >= 65 ? "Likely AI-generated" : score <= 35 ? "Likely human-made" : "Uncertain";
+
+      const metrics = data.kind === "text" ? calculateLinguisticMetrics(data.content) : undefined;
 
       return {
         ...primary,
@@ -155,9 +177,13 @@ OUTPUT: 3 to 5 concise signals with weights 0-100 reflecting each signal's actua
           ...segment,
           score: clamp(segment.score),
         })),
+        ...(metrics ? { metrics } : {}),
       } satisfies DetectionResult;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Analysis failed.";
-      throw new Error(message);
+      console.warn("AI gateway analysis failed; falling back to forensic heuristics:", error);
+      if (data.kind === "text") {
+        return analyzeTextHeuristically(data.content);
+      }
+      return analyzeImageHeuristically(data.dataUrl, data.mimeType);
     }
   });
