@@ -39,7 +39,7 @@ const resultSchema = z.object({
 export type DetectionResult = z.infer<typeof resultSchema>;
 
 export const analyzeContent = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => inputSchema.parse(input))
+  .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data }) => {
     const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) throw new Error("AI analysis is not configured for this project.");
