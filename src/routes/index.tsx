@@ -241,13 +241,13 @@ function Index() {
 
       <section id="detector" className="bg-surface py-16 lg:py-24">
         <div className="mx-auto max-w-[1240px] px-5">
-          <div className="mb-10 max-w-2xl">
+          <div className="reveal mb-10 max-w-2xl">
             <p className="section-kicker">Free detection lab</p>
             <h2 className="mt-3 text-4xl font-semibold leading-tight sm:text-5xl">Inspect content. Understand the signal.</h2>
             <p className="mt-4 text-muted-foreground">No account required. Your input is analyzed only for this result.</p>
           </div>
 
-          <div className="overflow-hidden border border-border bg-background shadow-editorial">
+          <div className="reveal reveal-1 overflow-hidden border border-border bg-background shadow-editorial transition-shadow duration-500 hover:shadow-[16px_16px_0_0_var(--ink)]">
             <div className="flex items-center justify-between border-b border-border px-4 sm:px-6">
               <div className="flex" role="tablist" aria-label="Content type">
                 <button className={`mode-tab ${mode === "text" ? "active" : ""}`} onClick={() => changeMode("text")} role="tab" aria-selected={mode === "text"}><TextCursorInput /> Text</button>
