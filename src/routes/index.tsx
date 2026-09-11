@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent } from "react";
 import {
   ArrowRight,
   Check,
@@ -49,6 +49,43 @@ const sampleText =
   "Artificial intelligence is rapidly transforming the modern workplace. By automating repetitive tasks and analyzing large volumes of information, AI enables teams to make faster, more informed decisions. However, organizations must thoughtfully balance innovation with transparency, accountability, and human oversight.";
 
 type Mode = "text" | "image";
+
+function useReveal(dependency?: unknown) {
+  useEffect(() => {
+    const targets = Array.from(document.querySelectorAll<HTMLElement>(".reveal:not(.in-view)"));
+    if (targets.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
+    );
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
+  }, [dependency]);
+}
+
+function useCountUp(target: number, duration = 900) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(target * eased));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
+  return value;
+}
 
 function Index() {
   const analyze = useServerFn(analyzeContent);
