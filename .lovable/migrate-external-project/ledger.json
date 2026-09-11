@@ -1,0 +1,102 @@
+{
+  "capabilities": [
+    {
+      "capability": "code",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "migrate",
+      "status": "in_progress",
+      "next_action": "Copy source src/ and public/ files into this project, preserving the current start.ts to avoid requiring Supabase auth."
+    },
+    {
+      "capability": "schema",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "none_required",
+      "status": "complete",
+      "next_action": "No database schema is used by the application."
+    },
+    {
+      "capability": "records",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "none_required",
+      "status": "complete",
+      "next_action": "No application records are used by the application."
+    },
+    {
+      "capability": "auth_identities",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "not_used",
+      "status": "complete",
+      "next_action": "The app has no sign-in or user accounts; Supabase auth files in source are unused and will not be copied."
+    },
+    {
+      "capability": "authorization",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "none_required",
+      "status": "complete",
+      "next_action": "No authorization logic is present."
+    },
+    {
+      "capability": "uploaded_file_bytes",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "migrate",
+      "status": "pending",
+      "next_action": "Copy public/favicon.ico and src/assets/detection-sample.jpg."
+    },
+    {
+      "capability": "external_providers",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "preserve",
+      "status": "pending",
+      "next_action": "AI analysis uses the Lovable AI Gateway via @ai-sdk/openai and the 'ai' package; LOVABLE_API_KEY is injected by the platform."
+    },
+    {
+      "capability": "public_endpoints",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "none_required",
+      "status": "complete",
+      "next_action": "No public API routes or webhooks are present."
+    },
+    {
+      "capability": "callbacks",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "none_required",
+      "status": "complete",
+      "next_action": "No OAuth callbacks or provider webhooks are present."
+    },
+    {
+      "capability": "webhooks",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "none_required",
+      "status": "complete",
+      "next_action": "No webhooks are present."
+    },
+    {
+      "capability": "schedules",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "none_required",
+      "status": "complete",
+      "next_action": "No scheduled jobs are present."
+    },
+    {
+      "capability": "secrets",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "preserve",
+      "status": "pending",
+      "next_action": "LOVABLE_API_KEY is provided by the platform; source .env Supabase credentials are project-specific and will not be copied."
+    },
+    {
+      "capability": "cutover",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "none_required",
+      "status": "complete",
+      "next_action": "No DNS or external service URL changes are required."
+    },
+    {
+      "capability": "verification",
+      "source": "github:bobby00007/ai-content-guard",
+      "outcome": "run",
+      "status": "pending",
+      "next_action": "Build the project and open the preview to confirm the Hive landing page and analyzer render."
+    }
+  ]
+}
