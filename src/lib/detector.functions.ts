@@ -96,34 +96,64 @@ OUTPUT: 3 to 5 concise signals with weights 0-100 reflecting each signal's actua
             },
           ];
 
-    try {
-      const result = streamText({
+    const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+
+    const runPass = async (temperature: number) => {
+      const pass = streamText({
         model: lovable.responses("openai/gpt-6-astra"),
         system: instructions,
         messages: prompt,
+        temperature,
         output: Output.object({ schema: resultSchema }),
         providerOptions: {
           openai: {
             forceReasoning: true,
-            reasoningEffort: "medium",
+            reasoningEffort: "high",
             reasoningSummary: "auto",
             store: false,
             include: ["reasoning.encrypted_content"],
           },
         },
       });
+      return await pass.output;
+    };
 
-      const output = await result.output;
+    try {
+      // Two independent passes are averaged; their agreement calibrates confidence.
+      const passes = await Promise.allSettled([runPass(0.1), runPass(0.6)]);
+      const outputs = passes
+        .filter((pass): pass is PromiseFulfilledResult<z.infer<typeof resultSchema>> => pass.status === "fulfilled")
+        .map((pass) => pass.value);
+
+      if (outputs.length === 0) {
+        const failure = passes[0];
+        throw failure && failure.status === "rejected" && failure.reason instanceof Error
+          ? failure.reason
+          : new Error("Analysis failed.");
+      }
+
+      const primary = outputs[0]!;
+      const score = clamp(outputs.reduce((total, item) => total + item.score, 0) / outputs.length);
+      const spread =
+        outputs.length > 1 ? Math.abs(outputs[0]!.score - outputs[1]!.score) : 100;
+      const ambiguous = score >= 40 && score <= 60;
+      const confidence: DetectionResult["confidence"] =
+        spread <= 10 && !ambiguous ? "High" : spread <= 25 ? "Moderate" : "Low";
+      const verdict: DetectionResult["verdict"] =
+        score >= 65 ? "Likely AI-generated" : score <= 35 ? "Likely human-made" : "Uncertain";
+
       return {
-        ...output,
-        score: Math.max(0, Math.min(100, Math.round(output.score))),
-        signals: output.signals.slice(0, 5).map((signal) => ({
+        ...primary,
+        score,
+        verdict,
+        confidence,
+        signals: primary.signals.slice(0, 5).map((signal) => ({
           ...signal,
-          weight: Math.max(0, Math.min(100, Math.round(signal.weight))),
+          weight: clamp(signal.weight),
         })),
-        segments: output.segments.slice(0, 16).map((segment) => ({
+        segments: primary.segments.slice(0, 16).map((segment) => ({
           ...segment,
-          score: Math.max(0, Math.min(100, Math.round(segment.score))),
+          score: clamp(segment.score),
         })),
       } satisfies DetectionResult;
     } catch (error) {
