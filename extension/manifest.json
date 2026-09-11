@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Hive Shield — WhatsApp Deepfake Detector (DVPS14)",
+  "version": "1.0.0",
+  "description": "Detect deepfake videos and manipulated images shared in family WhatsApp groups. Built for Hackathon Problem DVPS14.",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "*://web.whatsapp.com/*",
+    "*://gentle-content-guard.lovable.app/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Hive WhatsApp Deepfake Shield"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
