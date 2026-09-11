@@ -53,7 +53,30 @@ export const analyzeContent = createServerFn({ method: "POST" })
       },
     });
 
-    const instructions = `You are an expert synthetic-content forensic analyst. Return a careful probabilistic assessment, never a claim of certainty. Score from 0 to 100 where 100 means strongest evidence of AI generation. Provide 3 to 5 concise signals with weights from 0 to 100. For text, split the supplied content into representative sentence-sized segments and score each; preserve their exact text. For images, segments must be an empty array. Avoid identifying a specific person. Keep the summary under 45 words. Do not claim metadata or forensic evidence you cannot inspect.`;
+    const instructions = `You are a senior synthetic-content forensic analyst. Return a careful, calibrated probabilistic assessment — never a claim of certainty.
+
+SCORING RUBRIC (0 = certainly human, 100 = certainly AI):
+0-19  Strong human markers: idiosyncratic voice, uneven rhythm, typos, lived specifics, opinionated asides, unusual word choice.
+20-39 Mostly human; some polish or editing assistance possible.
+40-59 Genuinely ambiguous. Use this band often — short, generic, or heavily edited content usually belongs here.
+60-79 Multiple independent AI markers agree, but a competent professional writer could plausibly produce this.
+80-100 Dense convergence of AI markers with no counter-evidence.
+
+CALIBRATION EXAMPLES (patterns learned from large labelled corpora):
+- "Moreover, it is important to note that businesses must carefully balance innovation with responsibility." -> ~88. Connective scaffolding, hedged abstraction, zero concrete referents, uniform clause length.
+- "In today's fast-paced digital landscape, organizations are increasingly leveraging cutting-edge solutions." -> ~92. Template opener, stacked stock modifiers.
+- "we tried the new build friday and honestly it broke twice before lunch — jamie's fix held though" -> ~6. Casing drift, named specifics, temporal anchoring, informal punctuation.
+- "The study found a 3.2% decline across the 1,184 sampled households between March and June." -> ~35. Formal but concrete and verifiable; formality alone is NOT an AI marker.
+- Technical documentation or academic abstracts: subtract weight for domain-required formality; judge on burstiness and specificity instead.
+- Images: check lighting/shadow consistency, hand and tooth anatomy, background text legibility, hair-to-skin edges, texture repetition, unnaturally even bokeh, physically impossible reflections. Compression noise or low resolution is NOT evidence either way.
+
+METHOD:
+1. List candidate evidence for AI and for human origin before deciding.
+2. Weigh counter-evidence explicitly; a single marker never justifies a score above 70.
+3. Penalise confidence when the sample is short (<60 words), quoted, translated, or domain-constrained.
+4. Confidence: High only with several independent converging markers and ample content; Low for short or conflicting evidence.
+
+OUTPUT: 3 to 5 concise signals with weights 0-100 reflecting each signal's actual contribution. For text, split the content into representative sentence-sized segments and score each, preserving their exact text. For images, segments must be an empty array. Never identify a specific person. Keep the summary under 45 words. Never claim metadata or forensic evidence you cannot inspect.`;
 
     const prompt =
       data.kind === "text"
@@ -73,34 +96,64 @@ export const analyzeContent = createServerFn({ method: "POST" })
             },
           ];
 
-    try {
-      const result = streamText({
+    const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+
+    const runPass = async (temperature: number) => {
+      const pass = streamText({
         model: lovable.responses("openai/gpt-6-astra"),
         system: instructions,
         messages: prompt,
+        temperature,
         output: Output.object({ schema: resultSchema }),
         providerOptions: {
           openai: {
             forceReasoning: true,
-            reasoningEffort: "medium",
+            reasoningEffort: "high",
             reasoningSummary: "auto",
             store: false,
             include: ["reasoning.encrypted_content"],
           },
         },
       });
+      return await pass.output;
+    };
 
-      const output = await result.output;
+    try {
+      // Two independent passes are averaged; their agreement calibrates confidence.
+      const passes = await Promise.allSettled([runPass(0.1), runPass(0.6)]);
+      const outputs = passes
+        .filter((pass): pass is PromiseFulfilledResult<z.infer<typeof resultSchema>> => pass.status === "fulfilled")
+        .map((pass) => pass.value);
+
+      if (outputs.length === 0) {
+        const failure = passes[0];
+        throw failure && failure.status === "rejected" && failure.reason instanceof Error
+          ? failure.reason
+          : new Error("Analysis failed.");
+      }
+
+      const primary = outputs[0]!;
+      const score = clamp(outputs.reduce((total, item) => total + item.score, 0) / outputs.length);
+      const spread =
+        outputs.length > 1 ? Math.abs(outputs[0]!.score - outputs[1]!.score) : 100;
+      const ambiguous = score >= 40 && score <= 60;
+      const confidence: DetectionResult["confidence"] =
+        spread <= 10 && !ambiguous ? "High" : spread <= 25 ? "Moderate" : "Low";
+      const verdict: DetectionResult["verdict"] =
+        score >= 65 ? "Likely AI-generated" : score <= 35 ? "Likely human-made" : "Uncertain";
+
       return {
-        ...output,
-        score: Math.max(0, Math.min(100, Math.round(output.score))),
-        signals: output.signals.slice(0, 5).map((signal) => ({
+        ...primary,
+        score,
+        verdict,
+        confidence,
+        signals: primary.signals.slice(0, 5).map((signal) => ({
           ...signal,
-          weight: Math.max(0, Math.min(100, Math.round(signal.weight))),
+          weight: clamp(signal.weight),
         })),
-        segments: output.segments.slice(0, 16).map((segment) => ({
+        segments: primary.segments.slice(0, 16).map((segment) => ({
           ...segment,
-          score: Math.max(0, Math.min(100, Math.round(segment.score))),
+          score: clamp(segment.score),
         })),
       } satisfies DetectionResult;
     } catch (error) {

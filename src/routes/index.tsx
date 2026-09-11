@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent } from "react";
 import {
   ArrowRight,
   Check,
@@ -50,6 +50,43 @@ const sampleText =
 
 type Mode = "text" | "image";
 
+function useReveal(dependency?: unknown) {
+  useEffect(() => {
+    const targets = Array.from(document.querySelectorAll<HTMLElement>(".reveal:not(.in-view)"));
+    if (targets.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
+    );
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
+  }, [dependency]);
+}
+
+function useCountUp(target: number, duration = 900) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(target * eased));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
+  return value;
+}
+
 function Index() {
   const analyze = useServerFn(analyzeContent);
   const [mode, setMode] = useState<Mode>("text");
@@ -61,6 +98,9 @@ function Index() {
   const [copied, setCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useReveal(result);
+
 
   const changeMode = (next: Mode) => {
     setMode(next);
@@ -165,28 +205,29 @@ function Index() {
         <div className="relative mx-auto grid min-h-[520px] max-w-[1440px] lg:grid-cols-[0.85fr_1.15fr]">
           <div className="flex flex-col justify-between border-border p-6 py-12 lg:border-r lg:p-14 lg:py-16">
             <div>
-              <div className="mb-8 flex items-center gap-2 text-xs font-semibold uppercase text-signal">
-                <span className="h-2 w-2 rounded-full bg-signal shadow-[0_0_20px_var(--signal)]" />
+              <div className="reveal in-view mb-8 flex items-center gap-2 text-xs font-semibold uppercase text-signal">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-signal shadow-[0_0_20px_var(--signal)]" />
                 Synthetic media intelligence
               </div>
-              <h1 className="max-w-3xl text-5xl font-semibold leading-[0.95] sm:text-6xl lg:text-7xl">
-                Know what’s <span className="text-signal">real.</span>
+              <h1 className="reveal reveal-1 in-view max-w-3xl text-5xl font-semibold leading-[0.95] sm:text-6xl lg:text-7xl">
+                Know what’s <span className="sheen-text">real.</span>
               </h1>
-              <p className="mt-7 max-w-lg text-lg leading-8 text-ink-muted">
+              <p className="reveal reveal-2 in-view mt-7 max-w-lg text-lg leading-8 text-ink-muted">
                 Detect AI-generated text and images with clear confidence scores and evidence you can inspect.
               </p>
             </div>
-            <div className="mt-12 flex flex-wrap gap-3">
-              <Button variant="hero" size="xl" asChild><a href="#detector">Analyze content <ArrowRight /></a></Button>
-              <Button className="border-ink-line bg-transparent text-ink-foreground hover:bg-ink-surface" variant="outline" size="xl" asChild><a href="#how">See how it works</a></Button>
+            <div className="reveal reveal-3 in-view mt-12 flex flex-wrap gap-3">
+              <Button variant="hero" size="xl" className="cta-shine lift" asChild><a href="#detector">Analyze content <ArrowRight /></a></Button>
+              <Button className="lift border-ink-line bg-transparent text-ink-foreground hover:bg-ink-surface" variant="outline" size="xl" asChild><a href="#how">See how it works</a></Button>
             </div>
           </div>
           <div className="relative hidden items-center justify-center p-12 lg:flex">
-            <div className="scan-visual relative aspect-square w-full max-w-[560px]">
+            <div className="scan-visual drift relative aspect-square w-full max-w-[560px]">
               <div className="absolute inset-[8%] border border-ink-line" />
               <div className="absolute inset-[18%] border border-ink-line" />
               <div className="absolute left-1/2 top-0 h-full border-l border-ink-line" />
               <div className="absolute left-0 top-1/2 w-full border-t border-ink-line" />
+              <div className="pulse-ring absolute inset-[28%] rounded-full border border-signal/40" />
               <div className="absolute inset-[28%] grid place-items-center rounded-full border border-signal/40">
                 <Fingerprint className="h-24 w-24 text-signal" strokeWidth={1} />
               </div>
@@ -200,13 +241,13 @@ function Index() {
 
       <section id="detector" className="bg-surface py-16 lg:py-24">
         <div className="mx-auto max-w-[1240px] px-5">
-          <div className="mb-10 max-w-2xl">
+          <div className="reveal mb-10 max-w-2xl">
             <p className="section-kicker">Free detection lab</p>
             <h2 className="mt-3 text-4xl font-semibold leading-tight sm:text-5xl">Inspect content. Understand the signal.</h2>
             <p className="mt-4 text-muted-foreground">No account required. Your input is analyzed only for this result.</p>
           </div>
 
-          <div className="overflow-hidden border border-border bg-background shadow-editorial">
+          <div className="reveal reveal-1 overflow-hidden border border-border bg-background shadow-editorial transition-shadow duration-500 hover:shadow-[16px_16px_0_0_var(--ink)]">
             <div className="flex items-center justify-between border-b border-border px-4 sm:px-6">
               <div className="flex" role="tablist" aria-label="Content type">
                 <button className={`mode-tab ${mode === "text" ? "active" : ""}`} onClick={() => changeMode("text")} role="tab" aria-selected={mode === "text"}><TextCursorInput /> Text</button>
@@ -246,7 +287,7 @@ function Index() {
                   </div>
                 )}
                 {error && <p className="mt-4 border-l-2 border-destructive bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{error}</p>}
-                <Button variant="hero" size="xl" className="mt-5 w-full" disabled={loading} onClick={runAnalysis}>
+                <Button variant="hero" size="xl" className="cta-shine mt-5 w-full transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0" disabled={loading} onClick={runAnalysis}>
                   {loading ? <><LoaderCircle className="animate-spin" /> Running forensic analysis…</> : <><ScanLine /> Analyze {mode}</>}
                 </Button>
               </div>
@@ -263,7 +304,7 @@ function Index() {
       <section id="how" className="border-y border-border bg-background py-20 lg:py-28">
         <div className="mx-auto max-w-[1240px] px-5">
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
+            <div className="reveal">
               <p className="section-kicker">Explainable by design</p>
               <h2 className="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">A score is only useful when you can question it.</h2>
               <p className="mt-6 max-w-lg text-lg leading-8 text-muted-foreground">Hive pairs every estimate with the visible patterns that shaped it, so reviewers can make better decisions.</p>
@@ -276,7 +317,7 @@ function Index() {
                 [ShieldCheck, "Human judgment", "Keeps uncertainty visible and avoids turning a model estimate into a false claim of proof."],
               ].map(([Icon, title, copy], index) => {
                 const FeatureIcon = Icon as typeof Fingerprint;
-                return <article key={title as string} className="border-b border-r border-border p-7 lg:p-9"><span className="font-mono text-xs text-muted-foreground">0{index + 1}</span><FeatureIcon className="mt-10 h-8 w-8" strokeWidth={1.5} /><h3 className="mt-6 text-xl font-semibold">{title as string}</h3><p className="mt-3 leading-7 text-muted-foreground">{copy as string}</p></article>;
+                return <article key={title as string} className={`reveal reveal-${index + 1} card-hover group border-b border-r border-border p-7 lg:p-9`}><span className="font-mono text-xs text-muted-foreground">0{index + 1}</span><FeatureIcon className="mt-10 h-8 w-8 transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1.5} /><h3 className="mt-6 text-xl font-semibold">{title as string}</h3><p className="mt-3 leading-7 text-muted-foreground">{copy as string}</p></article>;
               })}
             </div>
           </div>
@@ -298,15 +339,15 @@ function Index() {
               ["04", "Social platforms", "Prioritize suspicious content without hiding the confidence level."],
               ["05", "Recruiting", "Inspect high-volume applications for templated synthetic writing."],
               ["06", "Research", "Triage mixed datasets and document visible evidence for later review."],
-            ].map(([number, title, copy]) => <article key={number} className="min-h-56 border-b border-r border-signal-foreground/25 p-7"><span className="font-mono text-xs opacity-60">{number}</span><h3 className="mt-12 text-2xl font-semibold">{title}</h3><p className="mt-3 leading-7 opacity-70">{copy}</p></article>)}
+            ].map(([number, title, copy], index) => <article key={number} className={`reveal reveal-${(index % 5) + 1} min-h-56 border-b border-r border-signal-foreground/25 p-7 transition-colors duration-300 hover:bg-signal-foreground/10`}><span className="font-mono text-xs opacity-60">{number}</span><h3 className="mt-12 text-2xl font-semibold">{title}</h3><p className="mt-3 leading-7 opacity-70">{copy}</p></article>)}
           </div>
         </div>
       </section>
 
       <section id="trust" className="bg-ink py-20 text-ink-foreground lg:py-28">
         <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-10 px-5 lg:flex-row lg:items-end">
-          <div><p className="section-kicker text-signal">Trust, with context</p><h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">Test suspicious content before it tests your credibility.</h2></div>
-          <Button variant="hero" size="xl" asChild><a href="#detector">Try the detector <ArrowRight /></a></Button>
+          <div className="reveal"><p className="section-kicker text-signal">Trust, with context</p><h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">Test suspicious content before it tests your credibility.</h2></div>
+          <Button variant="hero" size="xl" className="cta-shine lift reveal reveal-2" asChild><a href="#detector">Try the detector <ArrowRight /></a></Button>
         </div>
       </section>
 
@@ -334,15 +375,16 @@ function LoadingState({ mode }: { mode: Mode }) {
 
 function Results({ result, mode, copied, onCopy }: { result: DetectionResult; mode: Mode; copied: boolean; onCopy: () => void }) {
   const human = 100 - result.score;
+  const animatedScore = useCountUp(result.score);
   return <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-    <div className="flex items-start justify-between gap-4"><div><p className="section-kicker">Analysis complete</p><h3 className="mt-2 text-2xl font-semibold">{result.verdict}</h3></div><Button variant="outline" size="icon" onClick={onCopy} aria-label="Copy result">{copied ? <Check /> : <Clipboard />}</Button></div>
-    <div className="mt-7 grid grid-cols-[128px_1fr] items-center gap-6"><div className="score-ring" style={{ "--score": `${result.score * 3.6}deg` } as CSSProperties}><div><strong>{result.score}%</strong><span>AI likelihood</span></div></div><div><span className="inline-flex bg-ink px-2 py-1 font-mono text-xs text-ink-foreground">{result.confidence} confidence</span><p className="mt-3 text-sm leading-6 text-muted-foreground">{result.summary}</p></div></div>
+    <div className="flex items-start justify-between gap-4"><div><p className="section-kicker">Analysis complete</p><h3 className="mt-2 text-2xl font-semibold">{result.verdict}</h3></div><Button variant="outline" size="icon" className="transition-transform duration-300 hover:scale-110" onClick={onCopy} aria-label="Copy result">{copied ? <Check className="animate-in zoom-in duration-300" /> : <Clipboard />}</Button></div>
+    <div className="mt-7 grid grid-cols-[128px_1fr] items-center gap-6"><div className="score-ring transition-transform duration-500 hover:scale-105" style={{ "--score": `${animatedScore * 3.6}deg` } as CSSProperties}><div><strong>{animatedScore}%</strong><span>AI likelihood</span></div></div><div><span className="inline-flex animate-in fade-in slide-in-from-left-2 bg-ink px-2 py-1 font-mono text-xs text-ink-foreground duration-700">{result.confidence} confidence</span><p className="mt-3 text-sm leading-6 text-muted-foreground">{result.summary}</p></div></div>
     <div className="mt-7 space-y-2"><Distribution label="AI-generated" value={result.score} tone="signal" /><Distribution label="Human-made" value={human} tone="ink" /></div>
-    <div className="mt-8 border-t border-border pt-6"><h4 className="text-sm font-semibold uppercase">Strongest signals</h4><div className="mt-4 space-y-5">{result.signals.map((signal) => <div key={signal.label}><div className="mb-2 flex items-center justify-between gap-4 text-sm"><span className="font-semibold">{signal.label}</span><span className="font-mono text-xs">{signal.weight}%</span></div><div className="h-1.5 bg-border"><div className="h-full bg-signal transition-all duration-700" style={{ width: `${signal.weight}%` }} /></div><p className="mt-2 text-xs leading-5 text-muted-foreground">{signal.detail}</p></div>)}</div></div>
-    {mode === "text" && result.segments.length > 0 && <div className="mt-8 border-t border-border pt-6"><h4 className="text-sm font-semibold uppercase">Sentence map</h4><div className="mt-4 max-h-56 overflow-auto bg-background p-4 text-sm leading-7">{result.segments.map((segment, index) => <span key={`${index}-${segment.text.slice(0, 12)}`} title={`${segment.score}% AI likelihood`} className={segment.score >= 70 ? "bg-signal/50" : segment.score >= 40 ? "bg-warning/40" : "bg-positive/20"}>{segment.text} </span>)}</div></div>}
+    <div className="mt-8 border-t border-border pt-6"><h4 className="text-sm font-semibold uppercase">Strongest signals</h4><div className="mt-4 space-y-5">{result.signals.map((signal, index) => <div key={signal.label} className="animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: `${index * 90}ms`, animationFillMode: "backwards" }}><div className="mb-2 flex items-center justify-between gap-4 text-sm"><span className="font-semibold">{signal.label}</span><span className="font-mono text-xs">{signal.weight}%</span></div><div className="h-1.5 bg-border"><div className="bar-grow h-full bg-signal" style={{ width: `${signal.weight}%`, animationDelay: `${index * 90}ms` }} /></div><p className="mt-2 text-xs leading-5 text-muted-foreground">{signal.detail}</p></div>)}</div></div>
+    {mode === "text" && result.segments.length > 0 && <div className="mt-8 border-t border-border pt-6"><h4 className="text-sm font-semibold uppercase">Sentence map</h4><div className="mt-4 max-h-56 overflow-auto bg-background p-4 text-sm leading-7">{result.segments.map((segment, index) => <span key={`${index}-${segment.text.slice(0, 12)}`} title={`${segment.score}% AI likelihood`} className={`animate-in fade-in transition-colors duration-500 ${segment.score >= 70 ? "bg-signal/50" : segment.score >= 40 ? "bg-warning/40" : "bg-positive/20"}`} style={{ animationDelay: `${index * 45}ms`, animationFillMode: "backwards" }}>{segment.text} </span>)}</div></div>}
   </div>;
 }
 
 function Distribution({ label, value, tone }: { label: string; value: number; tone: "signal" | "ink" }) {
-  return <div><div className="mb-1 flex justify-between text-xs"><span>{label}</span><span className="font-mono">{value}%</span></div><div className="h-2 bg-border"><div className={`h-full ${tone === "signal" ? "bg-signal" : "bg-ink"}`} style={{ width: `${value}%` }} /></div></div>;
+  return <div><div className="mb-1 flex justify-between text-xs"><span>{label}</span><span className="font-mono">{value}%</span></div><div className="h-2 bg-border"><div className={`bar-grow h-full ${tone === "signal" ? "bg-signal" : "bg-ink"}`} style={{ width: `${value}%` }} /></div></div>;
 }
