@@ -2,12 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createOpenAI } from "@ai-sdk/openai";
 import { Output, streamText } from "ai";
 import { z } from "zod";
-import {
-  analyzeImageHeuristically,
-  analyzeTextHeuristically,
-  analyzeVideoHeuristically,
-  calculateLinguisticMetrics,
-} from "./detector.heuristics";
+import { calculateLinguisticMetrics } from "./detector.heuristics";
 
 const textInputSchema = z.object({
   kind: z.literal("text"),
@@ -105,18 +100,18 @@ export const analyzeContent = createServerFn({ method: "POST" })
       (data.kind === "image" && data.dataUrl.length > 0) ||
       (data.kind === "video" && (data.frames?.length ?? 0) > 0);
 
+    if (data.kind !== "text" && !hasRealInput) {
+      throw new Error(
+        "Preset cards are examples only. Upload the actual image or video you want analyzed.",
+      );
+    }
+
     const lovableApiKey = process.env["LOVABLE_API_KEY"];
     const openAiApiKey = process.env["OPENAI_API_KEY"];
 
-    // Presets are intentionally deterministic demo fixtures. Real uploads must
-    // never silently receive a preset result when the AI backend is unavailable.
+    // Real uploads must never silently receive a canned result when the AI
+    // backend is unavailable.
     if (!lovableApiKey && !openAiApiKey) {
-      if (!hasRealInput) {
-        if (data.kind === "image") {
-          return analyzeImageHeuristically(data.dataUrl, data.mimeType, data.fileName, data.presetId);
-        }
-        return analyzeVideoHeuristically(data.presetId, data.fileName, data.durationSec);
-      }
       throw new Error(
         "AI analysis is not configured. Add OPENAI_API_KEY or LOVABLE_API_KEY to the Netlify production environment.",
       );
@@ -254,12 +249,6 @@ OUTPUT: Always return every required field in the schema. Return 3 to 5 concise 
       } satisfies DetectionResult;
     } catch (error) {
       console.error("AI analysis failed:", error);
-      if (!hasRealInput) {
-        if (data.kind === "image") {
-          return analyzeImageHeuristically(data.dataUrl, data.mimeType, data.fileName, data.presetId);
-        }
-        return analyzeVideoHeuristically(data.presetId, data.fileName, data.durationSec);
-      }
       throw new Error(
         "The AI analysis service could not analyze this input. Check the provider key and model configuration, then try again.",
       );

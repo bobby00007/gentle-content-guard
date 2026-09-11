@@ -457,6 +457,14 @@ function Index() {
       setError("Upload an image or pick a preset above.");
       return;
     }
+    if (mode === "image" && !image) {
+      setError("Upload the actual image. Preset cards are examples and are not analyzed.");
+      return;
+    }
+    if (mode === "video" && !videoFile) {
+      setError("Upload the actual video. Preset cards are examples and are not analyzed.");
+      return;
+    }
     if (mode === "video" && videoPreparing) {
       setError("Please wait while the video frames are prepared.");
       return;
