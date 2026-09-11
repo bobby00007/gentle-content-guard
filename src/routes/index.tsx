@@ -205,28 +205,29 @@ function Index() {
         <div className="relative mx-auto grid min-h-[520px] max-w-[1440px] lg:grid-cols-[0.85fr_1.15fr]">
           <div className="flex flex-col justify-between border-border p-6 py-12 lg:border-r lg:p-14 lg:py-16">
             <div>
-              <div className="mb-8 flex items-center gap-2 text-xs font-semibold uppercase text-signal">
-                <span className="h-2 w-2 rounded-full bg-signal shadow-[0_0_20px_var(--signal)]" />
+              <div className="reveal in-view mb-8 flex items-center gap-2 text-xs font-semibold uppercase text-signal">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-signal shadow-[0_0_20px_var(--signal)]" />
                 Synthetic media intelligence
               </div>
-              <h1 className="max-w-3xl text-5xl font-semibold leading-[0.95] sm:text-6xl lg:text-7xl">
-                Know what’s <span className="text-signal">real.</span>
+              <h1 className="reveal reveal-1 in-view max-w-3xl text-5xl font-semibold leading-[0.95] sm:text-6xl lg:text-7xl">
+                Know what’s <span className="sheen-text">real.</span>
               </h1>
-              <p className="mt-7 max-w-lg text-lg leading-8 text-ink-muted">
+              <p className="reveal reveal-2 in-view mt-7 max-w-lg text-lg leading-8 text-ink-muted">
                 Detect AI-generated text and images with clear confidence scores and evidence you can inspect.
               </p>
             </div>
-            <div className="mt-12 flex flex-wrap gap-3">
-              <Button variant="hero" size="xl" asChild><a href="#detector">Analyze content <ArrowRight /></a></Button>
-              <Button className="border-ink-line bg-transparent text-ink-foreground hover:bg-ink-surface" variant="outline" size="xl" asChild><a href="#how">See how it works</a></Button>
+            <div className="reveal reveal-3 in-view mt-12 flex flex-wrap gap-3">
+              <Button variant="hero" size="xl" className="cta-shine lift" asChild><a href="#detector">Analyze content <ArrowRight /></a></Button>
+              <Button className="lift border-ink-line bg-transparent text-ink-foreground hover:bg-ink-surface" variant="outline" size="xl" asChild><a href="#how">See how it works</a></Button>
             </div>
           </div>
           <div className="relative hidden items-center justify-center p-12 lg:flex">
-            <div className="scan-visual relative aspect-square w-full max-w-[560px]">
+            <div className="scan-visual drift relative aspect-square w-full max-w-[560px]">
               <div className="absolute inset-[8%] border border-ink-line" />
               <div className="absolute inset-[18%] border border-ink-line" />
               <div className="absolute left-1/2 top-0 h-full border-l border-ink-line" />
               <div className="absolute left-0 top-1/2 w-full border-t border-ink-line" />
+              <div className="pulse-ring absolute inset-[28%] rounded-full border border-signal/40" />
               <div className="absolute inset-[28%] grid place-items-center rounded-full border border-signal/40">
                 <Fingerprint className="h-24 w-24 text-signal" strokeWidth={1} />
               </div>
