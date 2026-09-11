@@ -99,6 +99,9 @@ function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useReveal(result);
+
+
   const changeMode = (next: Mode) => {
     setMode(next);
     setResult(null);
